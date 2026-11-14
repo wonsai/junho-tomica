@@ -180,6 +180,9 @@
         <button id="btn-toggle-all-open" type="button" class="bg-amber-500 hover:bg-amber-600 text-white text-xs font-black px-3 py-2 rounded-xl shadow-sm active:scale-95 transition">
           🚪 전체 열기
         </button>
+        <button id="btn-xray-toggle" type="button" class="hidden bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-3 py-2 rounded-xl shadow-sm active:scale-95 transition">
+          🔍 차체 투시
+        </button>
         <button id="btn-seat-toggle" type="button" class="bg-sky-600 hover:bg-sky-700 text-white text-xs font-black px-3 py-2 rounded-xl shadow-sm active:scale-95 transition">
           🪑 좌석 앉기
         </button>
@@ -662,10 +665,10 @@
     function initScene() {
       const container = document.getElementById('canvas-container');
       scene = new THREE.Scene();
-      scene.background = new THREE.Color('#ded6c6');
-      scene.fog = new THREE.Fog('#ded6c6', 44, 92);
+      scene.background = new THREE.Color('#cce4ff');
+      scene.fog = new THREE.Fog('#dcecff', 52, 130);
 
-      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.04, 150);
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.04, 210);
       camera.position.set(-11.5, 15.5, 19.5);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
@@ -686,7 +689,7 @@
       controls.maxPolarAngle = Math.PI / 2 - 0.04;
       controls.minPolarAngle = 0.08;
       controls.minDistance = 0.25;
-      controls.maxDistance = 38;
+      controls.maxDistance = 46;
       controls.target.set(0.0, 0.3, -0.4);
       controls.update();
 
@@ -741,13 +744,268 @@
       animate();
     }
 
+    function createBuildingFacadeTexture(wallColor, winColor, litColor, cols, rows) {
+      const c = document.createElement('canvas');
+      c.width = 256; c.height = 256;
+      const ctx = c.getContext('2d');
+      ctx.fillStyle = wallColor;
+      ctx.fillRect(0, 0, 256, 256);
+
+      // Subtle floor slab bands
+      ctx.fillStyle = 'rgba(15,23,42,0.08)';
+      const rowH = 256 / rows;
+      for (let r = 0; r < rows; r++) {
+        ctx.fillRect(0, r * rowH, 256, 3);
+      }
+
+      const colW = 256 / cols;
+      const padX = colW * 0.22;
+      const padY = rowH * 0.22;
+      for (let r = 0; r < rows; r++) {
+        for (let col = 0; col < cols; col++) {
+          const isLit = ((r * 7 + col * 13) % 5) === 0 || ((r + col) % 7) === 0;
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(col * colW + padX - 2, r * rowH + padY - 2, colW - padX * 2 + 4, rowH - padY * 2 + 4);
+          ctx.fillStyle = isLit ? litColor : winColor;
+          ctx.fillRect(col * colW + padX, r * rowH + padY, colW - padX * 2, rowH - padY * 2);
+          // Window highlight glare
+          ctx.fillStyle = 'rgba(255,255,255,0.28)';
+          ctx.fillRect(col * colW + padX + 2, r * rowH + padY + 2, (colW - padX * 2) * 0.35, (rowH - padY * 2) * 0.3);
+        }
+      }
+      const tex = new THREE.CanvasTexture(c);
+      tex.encoding = THREE.sRGBEncoding;
+      tex.wrapS = THREE.RepeatWrapping;
+      tex.wrapT = THREE.RepeatWrapping;
+      return tex;
+    }
+
     function buildDiorama() {
       const table = new THREE.Mesh(
-        new THREE.PlaneGeometry(140, 140),
-        new THREE.MeshStandardMaterial({ color: '#dfd7c7', roughness: 0.92 })
+        new THREE.PlaneGeometry(210, 210),
+        new THREE.MeshStandardMaterial({ color: '#9cc483', roughness: 0.94 })
       );
       table.rotation.x = -Math.PI / 2; table.position.y = -0.08; table.receiveShadow = true;
       dioramaGroup.add(table);
+
+      const cityGroup = new THREE.Group();
+      const roadMat = new THREE.MeshStandardMaterial({ color: '#2b323c', roughness: 0.88 });
+      const sidewalkMat = new THREE.MeshStandardMaterial({ color: '#d6dce5', roughness: 0.82 });
+      const curbMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.78 });
+      const roadWhiteMat = new THREE.MeshBasicMaterial({ color: '#f8fafc' });
+      const roadYellowMat = new THREE.MeshBasicMaterial({ color: '#facc15' });
+
+      // Surrounding 4-way city streets & sidewalks around the Lawson parking board (28.6 x 18.0 -> x:±14.3, z:±9.0)
+      // Sidewalk Apron under the outer perimeter
+      const outerBlockWalk = new THREE.Mesh(new THREE.BoxGeometry(31.2, 0.08, 20.6), sidewalkMat);
+      outerBlockWalk.position.set(0, -0.04, 0); outerBlockWalk.receiveShadow = true;
+      cityGroup.add(outerBlockWalk);
+
+      // Front Main Boulevard (East-West, z = 9.0..15.2) & Back Service Street (z = -15.2..-9.0)
+      [12.2, -12.2].forEach((rz) => {
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(170, 5.8), roadMat);
+        road.rotation.x = -Math.PI / 2; road.position.set(0, -0.025, rz); road.receiveShadow = true;
+        cityGroup.add(road);
+
+        // Double yellow center line & white edge lines
+        [-0.1, 0.1].forEach((dy) => {
+          const yLine = new THREE.Mesh(new THREE.PlaneGeometry(170, 0.09), roadYellowMat);
+          yLine.rotation.x = -Math.PI / 2; yLine.position.set(0, -0.02, rz + dy);
+          cityGroup.add(yLine);
+        });
+        [-2.75, 2.75].forEach((ey) => {
+          const wLine = new THREE.Mesh(new THREE.PlaneGeometry(170, 0.1), roadWhiteMat);
+          wLine.rotation.x = -Math.PI / 2; wLine.position.set(0, -0.02, rz + ey);
+          cityGroup.add(wLine);
+        });
+      });
+
+      // Left & Right Cross-Streets (North-South, x = ±17.2)
+      [-17.2, 17.2].forEach((rx) => {
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 170), roadMat);
+        road.rotation.x = -Math.PI / 2; road.position.set(rx, -0.024, 0); road.receiveShadow = true;
+        cityGroup.add(road);
+
+        for (let z = -66; z <= 66; z += 3.6) {
+          if (Math.abs(Math.abs(z) - 12.2) < 3.4) continue; // keep intersection clear
+          const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 1.8), roadYellowMat);
+          dash.rotation.x = -Math.PI / 2; dash.position.set(rx, -0.019, z);
+          cityGroup.add(dash);
+        }
+      });
+
+      // Driveway aprons connecting Lawson parking lot (board z=+9) cleanly to the main front boulevard
+      [-10.4, 10.4].forEach((ax) => {
+        const apron = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.3), roadMat);
+        apron.rotation.x = -Math.PI / 2; apron.position.set(ax, -0.012, 9.05);
+        cityGroup.add(apron);
+      });
+
+      // Zebra Crosswalks at the front left & front right intersections
+      [-12.8, 12.8].forEach((cx) => {
+        for (let i = -2; i <= 2; i++) {
+          const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 2.3), roadWhiteMat);
+          stripe.rotation.x = -Math.PI / 2; stripe.position.set(cx + i * 0.72, -0.018, 12.2);
+          cityGroup.add(stripe);
+        }
+      });
+      [-17.2, 17.2].forEach((cx) => {
+        for (let i = -2; i <= 2; i++) {
+          const stripe = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.45), roadWhiteMat);
+          stripe.rotation.x = -Math.PI / 2; stripe.position.set(cx, -0.018, 8.2 + i * 0.72);
+          cityGroup.add(stripe);
+        }
+      });
+
+      // Outer Block Sidewalk Pads around the city skyline & neighborhood blocks
+      const cityPads = [
+        { x: 0, z: -29, w: 96, d: 28 },
+        { x: -34, z: 0, w: 28, d: 18 },
+        { x: 34, z: 0, w: 28, d: 18 },
+        { x: -34, z: 28, w: 28, d: 24 },
+        { x: 34, z: 28, w: 28, d: 24 },
+        { x: 0, z: 27, w: 32, d: 22 }
+      ];
+      cityPads.forEach((p) => {
+        const pad = new THREE.Mesh(new THREE.BoxGeometry(p.w, 0.14, p.d), sidewalkMat);
+        pad.position.set(p.x, -0.01, p.z); pad.receiveShadow = true;
+        cityGroup.add(pad);
+      });
+
+      // Traffic Signal Poles at front intersections
+      const poleDarkMat = new THREE.MeshStandardMaterial({ color: '#334155', metalness: 0.55, roughness: 0.4 });
+      const sigHousingMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.6 });
+      const redLightMat = new THREE.MeshBasicMaterial({ color: '#ef4444' });
+      const amberLightMat = new THREE.MeshBasicMaterial({ color: '#f59e0b' });
+      const greenLightMat = new THREE.MeshBasicMaterial({ color: '#22c55e' });
+      [
+        { x: -14.8, z: 9.4, rot: 0 },
+        { x: 14.8, z: 9.4, rot: 0 },
+        { x: -14.8, z: 15.0, rot: Math.PI },
+        { x: 14.8, z: 15.0, rot: Math.PI }
+      ].forEach((tf, idx) => {
+        const sig = new THREE.Group();
+        const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.7, 8), poleDarkMat);
+        post.position.y = 1.35;
+        const arm = new THREE.Mesh(new THREE.BoxGeometry(0.95, 0.08, 0.08), poleDarkMat);
+        arm.position.set(tf.x < 0 ? 0.45 : -0.45, 2.55, 0);
+        const box = new THREE.Mesh(new THREE.BoxGeometry(0.55, 0.24, 0.22), sigHousingMat);
+        box.position.set(tf.x < 0 ? 0.65 : -0.65, 2.55, 0);
+        const rDot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), idx % 2 === 0 ? greenLightMat : redLightMat);
+        rDot.position.set(box.position.x - 0.14, 2.55, 0.1);
+        const aDot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), amberLightMat);
+        aDot.position.set(box.position.x, 2.55, 0.1);
+        const gDot = new THREE.Mesh(new THREE.SphereGeometry(0.055, 8, 8), idx % 2 === 0 ? redLightMat : greenLightMat);
+        gDot.position.set(box.position.x + 0.14, 2.55, 0.1);
+        sig.add(post, arm, box, rDot, aDot, gDot);
+        sig.position.set(tf.x, 0, tf.z);
+        sig.rotation.y = tf.rot;
+        cityGroup.add(sig);
+      });
+
+      // Procedural City Skyline & Town Buildings (kept clear of foreground camera sightlines)
+      const buildingSpecs = [
+        // Back skyline behind Lawson (z = -18 .. -39)
+        { x: -34, z: -22, w: 8.5, h: 11.5, d: 7.5, wall: '#e2e8f0', roof: '#94a3b8', win: '#60a5fa', lit: '#fef08a', cols: 5, rows: 7 },
+        { x: -23, z: -20, w: 6.5, h: 8.2,  d: 6.5, wall: '#fde68a', roof: '#d97706', win: '#475569', lit: '#fef9c3', cols: 4, rows: 5 },
+        { x: -12, z: -21, w: 8.0, h: 13.5, d: 7.0, wall: '#cbd5e1', roof: '#64748b', win: '#38bdf8', lit: '#fde047', cols: 5, rows: 8 },
+        { x: -1,  z: -24, w: 9.5, h: 17.5, d: 8.0, wall: '#93c5fd', roof: '#3b82f6', win: '#1e3a8a', lit: '#fef08a', cols: 6, rows: 10 },
+        { x: 10,  z: -21, w: 7.5, h: 12.0, d: 6.8, wall: '#fecdd3', roof: '#e11d48', win: '#475569', lit: '#fef3c7', cols: 4, rows: 7 },
+        { x: 21,  z: -20, w: 7.0, h: 9.2,  d: 6.8, wall: '#bbf7d0', roof: '#16a34a', win: '#334155', lit: '#fef08a', cols: 4, rows: 6 },
+        { x: 32,  z: -23, w: 9.0, h: 14.5, d: 7.5, wall: '#ddd6fe', roof: '#7c3aed', win: '#312e81', lit: '#fde68a', cols: 5, rows: 8 },
+        // Deeper skyline row (z = -33 .. -39) for vertical depth
+        { x: -28, z: -34, w: 9.5, h: 20.0, d: 8.5, wall: '#bae6fd', roof: '#0284c7', win: '#0f172a', lit: '#fef08a', cols: 5, rows: 11 },
+        { x: -15, z: -35, w: 10.0, h: 23.5, d: 9.0, wall: '#e2e8f0', roof: '#475569', win: '#0ea5e9', lit: '#fef9c3', cols: 6, rows: 12 },
+        { x: -2,  z: -37, w: 8.5, h: 15.0, d: 8.0, wall: '#fed7aa', roof: '#ea580c', win: '#334155', lit: '#fef08a', cols: 5, rows: 9 },
+        { x: 12,  z: -35, w: 10.0, h: 22.0, d: 8.5, wall: '#cbd5e1', roof: '#334155', win: '#38bdf8', lit: '#fde047', cols: 6, rows: 12 },
+        { x: 26,  z: -34, w: 9.0, h: 18.0, d: 8.0, wall: '#a7f3d0', roof: '#059669', win: '#1e293b', lit: '#fef08a', cols: 5, rows: 10 },
+        // Left neighborhood shops & apartments (x = -26 .. -35)
+        { x: -26, z: -8,  w: 6.8, h: 5.5, d: 7.2, wall: '#fed7aa', roof: '#c2410c', win: '#475569', lit: '#fef08a', cols: 4, rows: 3, awning: '#ef4444' },
+        { x: -27, z: 2,   w: 7.2, h: 7.8, d: 8.0, wall: '#e0f2fe', roof: '#0369a1', win: '#334155', lit: '#fef9c3', cols: 4, rows: 5 },
+        { x: -26, z: 21,  w: 6.5, h: 4.8, d: 6.5, wall: '#fef3c7', roof: '#d97706', win: '#475569', lit: '#fef08a', cols: 4, rows: 3, awning: '#16a34a' },
+        { x: -37, z: 8,   w: 8.0, h: 11.0, d: 9.0, wall: '#cbd5e1', roof: '#64748b', win: '#38bdf8', lit: '#fef08a', cols: 5, rows: 7 },
+        // Right neighborhood shops & apartments (x = +26 .. +37)
+        { x: 26,  z: -8,  w: 7.0, h: 6.4, d: 7.4, wall: '#fce7f3', roof: '#be185d', win: '#334155', lit: '#fef08a', cols: 4, rows: 4, awning: '#2563eb' },
+        { x: 27,  z: 2,   w: 7.5, h: 9.5, d: 8.2, wall: '#e2e8f0', roof: '#475569', win: '#0ea5e9', lit: '#fef9c3', cols: 4, rows: 6 },
+        { x: 26,  z: 21,  w: 6.8, h: 5.0, d: 6.8, wall: '#dcfce7', roof: '#15803d', win: '#334155', lit: '#fef08a', cols: 4, rows: 3, awning: '#f59e0b' },
+        { x: 37,  z: 8,   w: 8.0, h: 12.5, d: 9.0, wall: '#bfdbfe', roof: '#1d4ed8', win: '#1e3a8a', lit: '#fef08a', cols: 5, rows: 7 },
+        // Far front shops (z = 27..32) kept medium-low so camera view is never obstructed
+        { x: -11, z: 29,  w: 7.5, h: 4.2, d: 6.0, wall: '#ffedd5', roof: '#ea580c', win: '#475569', lit: '#fef08a', cols: 4, rows: 2, awning: '#ef4444' },
+        { x: 1,   z: 30,  w: 8.5, h: 5.2, d: 6.2, wall: '#e0e7ff', roof: '#4338ca', win: '#334155', lit: '#fef9c3', cols: 5, rows: 3 },
+        { x: 12,  z: 29,  w: 7.2, h: 4.0, d: 6.0, wall: '#fef9c3', roof: '#ca8a04', win: '#475569', lit: '#fef08a', cols: 4, rows: 2, awning: '#0ea5e9' }
+      ];
+
+      buildingSpecs.forEach((b) => {
+        const tex = createBuildingFacadeTexture(b.wall, b.win, b.lit, b.cols, b.rows);
+        const wallMat = new THREE.MeshStandardMaterial({ map: tex, roughness: 0.72 });
+        const roofMat = new THREE.MeshStandardMaterial({ color: b.roof, roughness: 0.78 });
+        const mats = [wallMat, wallMat, roofMat, roofMat, wallMat, wallMat];
+        const bMesh = new THREE.Mesh(new THREE.BoxGeometry(b.w, b.h, b.d), mats);
+        bMesh.position.set(b.x, b.h / 2 + 0.05, b.z);
+        bMesh.receiveShadow = true;
+        cityGroup.add(bMesh);
+
+        // Rooftop parapet trim + AC unit for silhouette richness
+        const parapet = new THREE.Mesh(new THREE.BoxGeometry(b.w + 0.25, 0.3, b.d + 0.25), curbMat);
+        parapet.position.set(b.x, b.h + 0.15, b.z);
+        cityGroup.add(parapet);
+
+        const roofBox = new THREE.Mesh(new THREE.BoxGeometry(b.w * 0.28, 0.75, b.d * 0.28), curbMat);
+        roofBox.position.set(b.x + b.w * 0.15, b.h + 0.45, b.z - b.d * 0.1);
+        cityGroup.add(roofBox);
+
+        if (b.awning) {
+          const awning = new THREE.Mesh(
+            new THREE.BoxGeometry(b.w * 0.78, 0.22, 0.9),
+            new THREE.MeshStandardMaterial({ color: b.awning, roughness: 0.55 })
+          );
+          awning.position.set(b.x, 1.85, b.z + (b.z < 0 ? b.d / 2 + 0.45 : -b.d / 2 - 0.45));
+          cityGroup.add(awning);
+        }
+      });
+
+      // Front small park lawn across the street (low height = never blocks camera!) + benches & street trees
+      const parkLawn = new THREE.Mesh(
+        new THREE.BoxGeometry(28, 0.16, 10),
+        new THREE.MeshStandardMaterial({ color: '#4ade80', roughness: 0.9 })
+      );
+      parkLawn.position.set(0, 0.04, 21.5); parkLawn.receiveShadow = true;
+      cityGroup.add(parkLawn);
+
+      const cityTrunkMat = new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.9 });
+      const cityLeafMat = new THREE.MeshStandardMaterial({ color: '#16a34a', roughness: 0.78 });
+      const cityLeafLightMat = new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.78 });
+      [
+        [-21.5, -16], [-21.5, -2], [-21.5, 8], [-21.5, 17.5],
+        [21.5, -16], [21.5, -2], [21.5, 8], [21.5, 17.5],
+        [-11, 18.5], [-3, 18.5], [5, 18.5], [11.5, 18.5],
+        [-16, -16], [0, -16.8], [16, -16]
+      ].forEach(([tx, tz], i) => {
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 1.4, 7), cityTrunkMat);
+        trunk.position.set(tx, 0.7, tz);
+        const crown = new THREE.Mesh(new THREE.DodecahedronGeometry(0.95 + (i % 3) * 0.15, 0), i % 2 === 0 ? cityLeafMat : cityLeafLightMat);
+        crown.position.set(tx, 1.9, tz);
+        cityGroup.add(trunk, crown);
+      });
+
+      // Stylized fluffy clouds high in the sky
+      const cloudMat = new THREE.MeshStandardMaterial({ color: '#ffffff', roughness: 0.95 });
+      [
+        [-26, 24, -36, 1.2], [4, 27, -42, 1.5], [30, 23, -34, 1.1],
+        [-38, 22, 8, 1.0], [38, 25, 10, 1.3]
+      ].forEach(([cx, cy, cz, sc]) => {
+        const cloud = new THREE.Group();
+        [[-1.3, 0, 0, 1.2], [0, 0.45, 0.1, 1.6], [1.4, 0.05, -0.1, 1.25], [0.4, -0.1, 0.6, 1.1]].forEach(([px, py, pz, r]) => {
+          const puff = new THREE.Mesh(new THREE.DodecahedronGeometry(r, 1), cloudMat);
+          puff.position.set(px, py, pz);
+          cloud.add(puff);
+        });
+        cloud.position.set(cx, cy, cz);
+        cloud.scale.setScalar(sc);
+        cityGroup.add(cloud);
+      });
+
+      dioramaGroup.add(cityGroup);
 
       const board = new THREE.Mesh(
         new THREE.BoxGeometry(28.6, 0.14, 18.0),
@@ -1385,6 +1643,8 @@
         function attachWholeMesh(mesh, tg, isTransparent) {
           const subMesh = new THREE.Mesh(mesh.geometry, mesh.material);
           subMesh.applyMatrix4(mesh.matrixWorld);
+          subMesh.updateMatrix();
+          subMesh.userData.junoSubMatrix = subMesh.matrix.clone();
           if (tg !== bodyFixedGroup && tg !== sunshadeMesh) {
             subMesh.position.sub(tg.position);
           }
@@ -1410,32 +1670,155 @@
           });
         });
 
+        const bw = scaledSize.x;
+        const bh = scaledSize.y;
+        const bl = scaledSize.z;
+        const cutBoxes = {
+          leftDoor: {
+            min: new THREE.Vector3(-bw * 0.56, bh * 0.22, -bl * 0.16),
+            max: new THREE.Vector3(-bw * 0.27, bh * 0.87,  bl * 0.065),
+            hinge: new THREE.Vector3(-bw * 0.46, bh * 0.48, -bl * 0.16)
+          },
+          rightDoor: {
+            min: new THREE.Vector3( bw * 0.27, bh * 0.22, -bl * 0.16),
+            max: new THREE.Vector3( bw * 0.56, bh * 0.87,  bl * 0.065),
+            hinge: new THREE.Vector3( bw * 0.46, bh * 0.48, -bl * 0.16)
+          },
+          hood: {
+            min: new THREE.Vector3(-bw * 0.31, bh * 0.28, -bl * 0.44),
+            max: new THREE.Vector3( bw * 0.31, bh * 0.78, -bl * 0.175),
+            hinge: new THREE.Vector3(0, bh * 0.62, -bl * 0.175)
+          },
+          trunk: {
+            min: new THREE.Vector3(-bw * 0.31, bh * 0.36,  bl * 0.22),
+            max: new THREE.Vector3( bw * 0.31, bh * 0.88,  bl * 0.46),
+            hinge: new THREE.Vector3(0, bh * 0.72,  bl * 0.22)
+          }
+        };
+
+        const cutFlags = {
+          uJunoCutL: { value: 0.0 },
+          uJunoCutR: { value: 0.0 },
+          uJunoCutH: { value: 0.0 },
+          uJunoCutT: { value: 0.0 }
+        };
+
+        function attachBodyCutShader(mat, subMatrix) {
+          if (!mat) return;
+          mat.customProgramCacheKey = () => 'juno_body_cut_v1';
+          mat.onBeforeCompile = (shader) => {
+            if (!shader.vertexShader.includes('#include <begin_vertex>') ||
+                !shader.fragmentShader.includes('#include <clipping_planes_fragment>')) return;
+            shader.uniforms.uJunoSubMatrix = { value: subMatrix };
+            shader.uniforms.uJunoCutL = cutFlags.uJunoCutL;
+            shader.uniforms.uJunoCutR = cutFlags.uJunoCutR;
+            shader.uniforms.uJunoCutH = cutFlags.uJunoCutH;
+            shader.uniforms.uJunoCutT = cutFlags.uJunoCutT;
+            shader.uniforms.uJunoMinL = { value: cutBoxes.leftDoor.min };
+            shader.uniforms.uJunoMaxL = { value: cutBoxes.leftDoor.max };
+            shader.uniforms.uJunoMinR = { value: cutBoxes.rightDoor.min };
+            shader.uniforms.uJunoMaxR = { value: cutBoxes.rightDoor.max };
+            shader.uniforms.uJunoMinH = { value: cutBoxes.hood.min };
+            shader.uniforms.uJunoMaxH = { value: cutBoxes.hood.max };
+            shader.uniforms.uJunoMinT = { value: cutBoxes.trunk.min };
+            shader.uniforms.uJunoMaxT = { value: cutBoxes.trunk.max };
+            shader.vertexShader = shader.vertexShader
+              .replace('#include <common>', '#include <common>\nuniform mat4 uJunoSubMatrix;\nvarying vec3 vJunoCarPos;')
+              .replace('#include <begin_vertex>', '#include <begin_vertex>\nvJunoCarPos = (uJunoSubMatrix * vec4(transformed, 1.0)).xyz;');
+            shader.fragmentShader = shader.fragmentShader
+              .replace('#include <common>',
+                '#include <common>\nvarying vec3 vJunoCarPos;\n' +
+                'uniform float uJunoCutL, uJunoCutR, uJunoCutH, uJunoCutT;\n' +
+                'uniform vec3 uJunoMinL, uJunoMaxL, uJunoMinR, uJunoMaxR, uJunoMinH, uJunoMaxH, uJunoMinT, uJunoMaxT;\n' +
+                'bool junoInBox(vec3 p, vec3 bmin, vec3 bmax) { return all(greaterThanEqual(p, bmin)) && all(lessThanEqual(p, bmax)); }'
+              )
+              .replace('#include <clipping_planes_fragment>',
+                'if ((uJunoCutL > 0.5 && junoInBox(vJunoCarPos, uJunoMinL, uJunoMaxL)) ||\n' +
+                '    (uJunoCutR > 0.5 && junoInBox(vJunoCarPos, uJunoMinR, uJunoMaxR)) ||\n' +
+                '    (uJunoCutH > 0.5 && junoInBox(vJunoCarPos, uJunoMinH, uJunoMaxH)) ||\n' +
+                '    (uJunoCutT > 0.5 && junoInBox(vJunoCarPos, uJunoMinT, uJunoMaxT))) { discard; }\n' +
+                '#include <clipping_planes_fragment>'
+              );
+          };
+        }
+
+        function attachPartKeepShader(mat, subMatrix, keepMin, keepMax) {
+          if (!mat) return;
+          mat.side = THREE.DoubleSide;
+          mat.customProgramCacheKey = () => 'juno_part_keep_v1';
+          mat.onBeforeCompile = (shader) => {
+            if (!shader.vertexShader.includes('#include <begin_vertex>') ||
+                !shader.fragmentShader.includes('#include <clipping_planes_fragment>')) return;
+            shader.uniforms.uJunoSubMatrix = { value: subMatrix };
+            shader.uniforms.uJunoKeepMin = { value: keepMin };
+            shader.uniforms.uJunoKeepMax = { value: keepMax };
+            shader.vertexShader = shader.vertexShader
+              .replace('#include <common>', '#include <common>\nuniform mat4 uJunoSubMatrix;\nvarying vec3 vJunoCarPos;')
+              .replace('#include <begin_vertex>', '#include <begin_vertex>\nvJunoCarPos = (uJunoSubMatrix * vec4(transformed, 1.0)).xyz;');
+            shader.fragmentShader = shader.fragmentShader
+              .replace('#include <common>', '#include <common>\nvarying vec3 vJunoCarPos;\nuniform vec3 uJunoKeepMin, uJunoKeepMax;')
+              .replace('#include <clipping_planes_fragment>',
+                'if (any(lessThan(vJunoCarPos, uJunoKeepMin)) || any(greaterThan(vJunoCarPos, uJunoKeepMax))) { discard; }\n' +
+                '#include <clipping_planes_fragment>'
+              );
+          };
+        }
+
         const shellMeshes = [];
         const glassMeshes = [];
+        const cutSourceMeshes = [];
 
         partLists.fixed.forEach((mesh) => {
           const n = getGlbNodePath(mesh, root);
           const fullTag = n + ' ' + getMatNameTag(mesh.material);
           const { isCabinGlass, isTransparent } = tuneGlbMaterial(mesh.material, fullTag);
 
-          const isInnerOrChassis = fullTag.includes('interior') || fullTag.includes('seat') || fullTag.includes('engine') ||
-            fullTag.includes('cockpit') || fullTag.includes('int_') || fullTag.includes('steer') ||
-            fullTag.includes('radiator') || fullTag.includes('intake') || fullTag.includes('strutbrace') ||
-            fullTag.includes('engbay') || fullTag.includes('wheel') || fullTag.includes('tire') ||
-            fullTag.includes('tyre') || fullTag.includes('alloy') || fullTag.includes('rim') ||
-            fullTag.includes('disk') || fullTag.includes('disco') || fullTag.includes('brake') ||
-            fullTag.includes('caliper') || fullTag.includes('calipoer') || fullTag.includes('calliper') ||
-            fullTag.includes('pinza') || fullTag.includes('cerchione') || fullTag.includes('gomma') ||
-            fullTag.includes('sottoscocca') || fullTag.includes('susp_') || fullTag.includes('under') ||
-            fullTag.includes('badge') || fullTag.includes('plate') || fullTag.includes('seatbelt') ||
-            fullTag.includes('glow');
+          const innerChassisRx = /(?:^|[\s:_\-/.])(?:interior|seat|engine|cockpit|int_|int:|steer|radiator|intake|strutbrace|engbay|wheel|tire|tyre|alloy|rim|disk|disco|brake|caliper|calipoer|calliper|pinza|cerchione|gomma|sottoscocca|susp|under|badge|plate|seatbelt|glow)/;
+          const isInnerOrChassis = innerChassisRx.test(fullTag);
 
           const added = attachWholeMesh(mesh, bodyFixedGroup, isTransparent);
           if (isCabinGlass) {
+            cloneMeshMaterials(added);
+            const mats = Array.isArray(added.material) ? added.material : [added.material];
+            mats.forEach((m) => attachBodyCutShader(m, added.userData.junoSubMatrix));
             glassMeshes.push(added);
+            cutSourceMeshes.push({ src: added, isGlass: true });
           } else if (!isInnerOrChassis) {
             cloneMeshMaterials(added);
+            const mats = Array.isArray(added.material) ? added.material : [added.material];
+            mats.forEach((m) => attachBodyCutShader(m, added.userData.junoSubMatrix));
             shellMeshes.push(added);
+            cutSourceMeshes.push({ src: added, isGlass: false });
+          }
+        });
+
+        // Build clean shader-cut swinging 3D panels for any un-separated door / hood / trunk parts
+        const virtualCut = { leftDoor: false, rightDoor: false, hood: false, trunk: false };
+        const virtualDefs = [
+          ['leftDoor', leftDoorPivot],
+          ['rightDoor', rightDoorPivot],
+          ['hood', hoodPivot],
+          ['trunk', trunkPivot]
+        ];
+        virtualDefs.forEach(([key, pivot]) => {
+          if (partLists[key].length === 0 && cutSourceMeshes.length > 0) {
+            virtualCut[key] = true;
+            pivot.position.copy(cutBoxes[key].hinge);
+            pivot.visible = false;
+            cutSourceMeshes.forEach(({ src, isGlass }) => {
+              const panel = new THREE.Mesh(src.geometry, src.material);
+              panel.position.copy(src.position).sub(pivot.position);
+              panel.quaternion.copy(src.quaternion);
+              panel.scale.copy(src.scale);
+              cloneMeshMaterials(panel);
+              const mats = Array.isArray(panel.material) ? panel.material : [panel.material];
+              mats.forEach((m) => attachPartKeepShader(m, src.userData.junoSubMatrix, cutBoxes[key].min, cutBoxes[key].max));
+              panel.castShadow = false;
+              panel.receiveShadow = src.receiveShadow;
+              pivot.add(panel);
+              if (isGlass) glassMeshes.push(panel);
+              else shellMeshes.push(panel);
+            });
           }
         });
 
@@ -1451,6 +1834,8 @@
             trunk: partLists.trunk.length > 0,
             sunshade: false
           },
+          virtualCut,
+          cutFlags,
           hasEngine, hasInterior,
           shellMeshes, glassMeshes,
           parts: {
@@ -1631,26 +2016,39 @@
       const anyOpen = !!(inspectState.leftDoor || inspectState.rightDoor || inspectState.hood || inspectState.trunk || inspectState.sunshade || inspectState.glassOpen || inspectState.xray);
       const toggleBtn = document.getElementById('btn-toggle-all-open');
       if (toggleBtn) toggleBtn.textContent = anyOpen ? '🔒 모두 닫기' : '🚪 전체 열기';
+      const xrayBtn = document.getElementById('btn-xray-toggle');
+      if (xrayBtn) {
+        xrayBtn.textContent = inspectState.xray ? '👁️ 투시 끄기' : '🔍 차체 투시';
+        xrayBtn.className = inspectState.xray
+          ? 'bg-emerald-600 hover:bg-emerald-700 text-white text-xs font-black px-3 py-2 rounded-xl shadow-sm active:scale-95 transition'
+          : 'bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-black px-3 py-2 rounded-xl shadow-sm active:scale-95 transition';
+      }
     }
 
     function applyInspectParts(carObj) {
       const ud = carObj.mesh.userData;
       const art = ud.articulated;
+      const vc = ud.virtualCut;
       if (ud.parts) {
-        ud.parts.targetLeftDoor = (!art || art.leftDoor) && inspectState.leftDoor ? -1.08 : 0;
-        ud.parts.targetRightDoor = (!art || art.rightDoor) && inspectState.rightDoor ? 1.08 : 0;
+        const canL = !art || art.leftDoor || (vc && vc.leftDoor);
+        const canR = !art || art.rightDoor || (vc && vc.rightDoor);
+        const canH = !art || art.hood || (vc && vc.hood);
+        const canT = !art || art.trunk || (vc && vc.trunk);
+        ud.parts.targetLeftDoor = canL && inspectState.leftDoor ? -1.08 : 0;
+        ud.parts.targetRightDoor = canR && inspectState.rightDoor ? 1.08 : 0;
         ud.parts.targetSunshadeZ = (!art || art.sunshade) && inspectState.sunshade ? ud.parts.sunshadeZ + 0.48 : ud.parts.sunshadeZ;
-        ud.parts.targetHoodAngle = (!art || art.hood) && inspectState.hood ? 0.85 : 0;
-        ud.parts.targetTrunkAngle = (!art || art.trunk) && inspectState.trunk ? -1.05 : 0;
+        ud.parts.targetHoodAngle = canH && inspectState.hood ? 0.85 : 0;
+        ud.parts.targetTrunkAngle = canT && inspectState.trunk ? -1.05 : 0;
+
+        if (vc && ud.cutFlags) {
+          if (vc.leftDoor && inspectState.leftDoor) { ud.cutFlags.uJunoCutL.value = 1.0; ud.parts.leftDoorPivot.visible = true; }
+          if (vc.rightDoor && inspectState.rightDoor) { ud.cutFlags.uJunoCutR.value = 1.0; ud.parts.rightDoorPivot.visible = true; }
+          if (vc.hood && inspectState.hood) { ud.cutFlags.uJunoCutH.value = 1.0; ud.parts.hoodPivot.visible = true; }
+          if (vc.trunk && inspectState.trunk) { ud.cutFlags.uJunoCutT.value = 1.0; ud.parts.trunkPivot.visible = true; }
+        }
       }
       if (ud.isGlb) {
-        const mergedOpenRequested = !!(
-          (!art?.leftDoor && inspectState.leftDoor) ||
-          (!art?.rightDoor && inspectState.rightDoor) ||
-          (!art?.hood && inspectState.hood) ||
-          (!art?.trunk && inspectState.trunk)
-        );
-        const cutaway = !!(inspectState.xray || mergedOpenRequested);
+        const cutaway = !!inspectState.xray;
         const hideGlass = !!(inspectState.glassOpen || inspectState.sunshade || inspectState.seat || cutaway);
         if (ud.glassMeshes) {
           ud.glassMeshes.forEach((gm) => { gm.visible = !hideGlass; });
@@ -1701,13 +2099,12 @@
           { key: 'trunk',     icon: '🧳', label: '트렁크',    pos: new THREE.Vector3(0, by + 0.05,  bl * 0.38) }
         ];
       } else {
-        const art = ud.articulated || {};
         defs = [
-          { key: 'leftDoor',  icon: '🚪', label: art.leftDoor  ? '왼쪽 문'   : '왼쪽 문·투시',   pos: new THREE.Vector3(-bw / 2 - 0.06, dy, 0.06) },
-          { key: 'rightDoor', icon: '🚪', label: art.rightDoor ? '오른쪽 문' : '오른쪽 문·투시', pos: new THREE.Vector3( bw / 2 + 0.06, dy, 0.06) },
-          { key: 'glassOpen', icon: '🪟', label: '유리 열기',                                    pos: new THREE.Vector3(0, ry + 0.07, 0.05) },
-          { key: 'hood',      icon: '⚡', label: art.hood      ? '본넷 열기' : (ud.hasEngine ? '엔진·투시' : '본넷·투시'), pos: new THREE.Vector3(0, by + 0.05, -bl * 0.36) },
-          { key: 'trunk',     icon: '🧳', label: art.trunk     ? '트렁크'    : '트렁크·투시',    pos: new THREE.Vector3(0, by + 0.05,  bl * 0.38) }
+          { key: 'leftDoor',  icon: '🚪', label: '왼쪽 문',   pos: new THREE.Vector3(-bw / 2 - 0.06, dy, 0.06) },
+          { key: 'rightDoor', icon: '🚪', label: '오른쪽 문', pos: new THREE.Vector3( bw / 2 + 0.06, dy, 0.06) },
+          { key: 'glassOpen', icon: '🪟', label: '유리 열기', pos: new THREE.Vector3(0, ry + 0.07, 0.05) },
+          { key: 'hood',      icon: '⚡', label: ud.hasEngine ? '엔진·본넷' : '본넷 열기', pos: new THREE.Vector3(0, by + 0.05, -bl * 0.36) },
+          { key: 'trunk',     icon: '🧳', label: '트렁크',    pos: new THREE.Vector3(0, by + 0.05,  bl * 0.38) }
         ];
       }
 
@@ -1780,14 +2177,12 @@
       controls.maxDistance = 6.5;
 
       const ud = carObj.mesh.userData;
-      const art = ud.articulated || {};
-      const hasAnyPivot = art.leftDoor || art.rightDoor || art.hood || art.trunk;
       document.getElementById('inspect-title').textContent = carObj.spec.name;
       document.getElementById('inspect-subtitle').textContent = !ud.isGlb
         ? '차량 위의 동그란 버튼을 터치하면 문·트렁크·선쉐이드가 열려요!'
-        : (hasAnyPivot
-          ? '분리된 문·본넷·트렁크는 실제로 열리고, 나머지는 깔끔한 투시 모드로 열려요!'
-          : '문·본넷·트렁크 버튼을 누르면 깨짐 없이 깔끔한 유리·실내 투시 모드로 열려요!');
+        : '차량 위의 동그란 버튼을 터치하면 문·본넷·트렁크·유리가 열려요!';
+      const xrayBtn = document.getElementById('btn-xray-toggle');
+      if (xrayBtn) xrayBtn.classList.toggle('hidden', !ud.isGlb);
       document.getElementById('btn-seat-toggle').textContent = '🪑 좌석 앉기';
       const toggleAllBtn = document.getElementById('btn-toggle-all-open');
       if (toggleAllBtn) toggleAllBtn.textContent = '🚪 전체 열기';
@@ -1816,10 +2211,10 @@
       dioramaGroup.visible = true;
       studioGroup.visible = false;
       carObjects.forEach((obj) => { obj.mesh.visible = (obj.stallIndex !== null); });
-      scene.background = new THREE.Color('#ded6c6');
-      scene.fog = new THREE.Fog('#ded6c6', 44, 92);
+      scene.background = new THREE.Color('#cce4ff');
+      scene.fog = new THREE.Fog('#dcecff', 52, 130);
       controls.minDistance = 0.25;
-      controls.maxDistance = 38;
+      controls.maxDistance = 46;
       controls.maxPolarAngle = Math.PI / 2 - 0.04;
 
       document.getElementById('top-hud').classList.remove('opacity-0', 'pointer-events-none');
@@ -2024,6 +2419,14 @@
         inspectState.sunshade = target;
         inspectState.glassOpen = target;
         inspectState.xray = false;
+        applyInspectParts(carObj);
+      });
+      document.getElementById('btn-xray-toggle').addEventListener('click', () => {
+        if (!inspectedCarId) return;
+        const carObj = carObjects.get(inspectedCarId);
+        if (!carObj) return;
+        playSelectTap();
+        inspectState.xray = !inspectState.xray;
         applyInspectParts(carObj);
       });
       document.getElementById('btn-seat-toggle').addEventListener('click', (e) => {
@@ -2365,7 +2768,8 @@
       });
 
       carObjects.forEach((obj) => {
-        const p = obj.mesh.userData.parts;
+        const ud = obj.mesh.userData;
+        const p = ud.parts;
         if (p) {
           p.leftDoorPivot.rotation.y += (p.targetLeftDoor - p.leftDoorPivot.rotation.y) * 0.16;
           p.rightDoorPivot.rotation.y += (p.targetRightDoor - p.rightDoorPivot.rotation.y) * 0.16;
@@ -2375,6 +2779,54 @@
           p.trunkPivot.rotation.x += (p.targetTrunkAngle - p.trunkPivot.rotation.x) * 0.16;
           p.sunshadeMesh.position.z += (p.targetSunshadeZ - p.sunshadeMesh.position.z) * 0.16;
           p.sunshadeMesh.visible = Math.abs(p.sunshadeMesh.position.z - p.sunshadeZ) < 0.36;
+
+          // Sync virtual shader cutout flags & panel visibility with closing animation (zero z-fighting when closed)
+          if (ud.virtualCut && ud.cutFlags) {
+            if (ud.virtualCut.leftDoor) {
+              const closingDone = Math.abs(p.targetLeftDoor) < 0.001 && Math.abs(p.leftDoorPivot.rotation.y) < 0.006;
+              if (closingDone) {
+                p.leftDoorPivot.rotation.y = 0;
+                p.leftDoorPivot.visible = false;
+                ud.cutFlags.uJunoCutL.value = 0.0;
+              } else {
+                p.leftDoorPivot.visible = true;
+                ud.cutFlags.uJunoCutL.value = 1.0;
+              }
+            }
+            if (ud.virtualCut.rightDoor) {
+              const closingDone = Math.abs(p.targetRightDoor) < 0.001 && Math.abs(p.rightDoorPivot.rotation.y) < 0.006;
+              if (closingDone) {
+                p.rightDoorPivot.rotation.y = 0;
+                p.rightDoorPivot.visible = false;
+                ud.cutFlags.uJunoCutR.value = 0.0;
+              } else {
+                p.rightDoorPivot.visible = true;
+                ud.cutFlags.uJunoCutR.value = 1.0;
+              }
+            }
+            if (ud.virtualCut.hood) {
+              const closingDone = Math.abs(p.targetHoodAngle) < 0.001 && Math.abs(p.hoodPivot.rotation.x) < 0.006;
+              if (closingDone) {
+                p.hoodPivot.rotation.x = 0;
+                p.hoodPivot.visible = false;
+                ud.cutFlags.uJunoCutH.value = 0.0;
+              } else {
+                p.hoodPivot.visible = true;
+                ud.cutFlags.uJunoCutH.value = 1.0;
+              }
+            }
+            if (ud.virtualCut.trunk) {
+              const closingDone = Math.abs(p.targetTrunkAngle) < 0.001 && Math.abs(p.trunkPivot.rotation.x) < 0.006;
+              if (closingDone) {
+                p.trunkPivot.rotation.x = 0;
+                p.trunkPivot.visible = false;
+                ud.cutFlags.uJunoCutT.value = 0.0;
+              } else {
+                p.trunkPivot.visible = true;
+                ud.cutFlags.uJunoCutT.value = 1.0;
+              }
+            }
+          }
         }
       });
 
