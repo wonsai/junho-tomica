@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
-  <title>준호의 로손 토미카 3D 주차장</title>
+  <title>준호의 남산자이하늘채 3D 주차장</title>
   <script src="https://cdn.tailwindcss.com/3.4.17"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
   <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
@@ -107,9 +107,9 @@
   <!-- Top HUD -->
   <header id="top-hud" class="fixed top-3 left-3 right-3 z-20 flex items-center justify-between gap-2 pointer-events-none transition-opacity duration-200">
     <div class="glass-panel rounded-2xl px-3.5 py-2 flex items-center gap-2.5 pointer-events-auto">
-      <div class="w-9 h-9 rounded-xl bg-sky-700 text-white flex items-center justify-center font-black text-sm shadow-sm">L</div>
+      <div class="w-9 h-9 rounded-xl bg-slate-900 text-amber-200 flex items-center justify-center font-black text-xs tracking-tight shadow-sm border border-amber-300/40">Xi</div>
       <div>
-        <h1 class="text-sm sm:text-base font-black text-slate-800 leading-tight">준호의 로손 토미카 주차장</h1>
+        <h1 class="text-sm sm:text-base font-black text-slate-800 leading-tight">준호의 남산자이하늘채 주차장</h1>
         <p class="text-[11px] sm:text-xs font-bold text-slate-500">
           주차 <span id="parked-count" class="text-sky-600">0</span> / <span id="total-stalls">17</span>대
           · <span class="text-amber-600 font-black">⭐ <span id="hud-points">0</span>P</span>
@@ -605,24 +605,167 @@
       return tex;
     }
 
-    function createLawsonSignTexture() {
+    function createXiTowerFacadeTexture(variant, floors) {
+      const c = document.createElement('canvas');
+      c.width = 512; c.height = 1024;
+      const ctx = c.getContext('2d');
+
+      // Base architectural concrete/cladding
+      ctx.fillStyle = '#e8ecf2';
+      ctx.fillRect(0, 0, 512, 1024);
+
+      const fH = 1024 / floors;
+      // Variant zones modeled directly on Namsan Xi Hanulche elevation
+      if (variant === 'xi-center') {
+        // Left warm bronze-terracotta mullion wing (0..285), center dark curtain-wall core (285..395), right crisp white frame wing (395..512)
+        ctx.fillStyle = '#a87e62';
+        ctx.fillRect(14, 0, 272, 1024);
+        ctx.fillStyle = '#1e293b';
+        ctx.fillRect(286, 0, 110, 1024);
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(396, 0, 116, 1024);
+        // Outer white vertical frame border on left edge
+        ctx.fillStyle = '#f1f5f9';
+        ctx.fillRect(0, 0, 16, 1024);
+        ctx.fillRect(274, 0, 12, 1024);
+      } else if (variant === 'hanulche') {
+        // Crisp white architectural grid on left (0..310), warm terracotta-bronze wing on right (310..512)
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, 0, 312, 1024);
+        ctx.fillStyle = '#9e7054';
+        ctx.fillRect(312, 0, 200, 1024);
+        ctx.fillStyle = '#263244';
+        ctx.fillRect(138, 0, 44, 1024);
+      } else {
+        // Stepped wing towers: white frame + bronze bay + charcoal core
+        ctx.fillStyle = '#f8fafc';
+        ctx.fillRect(0, 0, 240, 1024);
+        ctx.fillStyle = '#263244';
+        ctx.fillRect(240, 0, 68, 1024);
+        ctx.fillStyle = '#a2765b';
+        ctx.fillRect(308, 0, 204, 1024);
+      }
+
+      // Draw apartment floors, spandrel bands, vertical mullions & warm lit living room windows
+      const cols = 8;
+      const colW = 512 / cols;
+      for (let r = 0; r < floors; r++) {
+        const y = r * fH;
+        // Horizontal floor slab line
+        ctx.fillStyle = 'rgba(15, 23, 42, 0.22)';
+        ctx.fillRect(0, y, 512, 2.5);
+
+        for (let col = 0; col < cols; col++) {
+          const x = col * colW;
+          const padX = 7;
+          const padY = Math.max(3, fH * 0.16);
+          const wW = colW - padX * 2;
+          const wH = Math.max(6, fH - padY * 2);
+
+          // Deterministic cozy warm home lighting pattern
+          const seed = (r * 17 + col * 31 + (variant === 'xi-center' ? 3 : variant === 'hanulche' ? 9 : 15)) % 19;
+          const isWarmLit = seed === 0 || seed === 4 || seed === 11 || (r > 3 && seed === 7);
+          const isSoftLit = seed === 2 || seed === 14;
+
+          ctx.fillStyle = '#0f172a';
+          ctx.fillRect(x + padX - 1.5, y + padY - 1.5, wW + 3, wH + 3);
+
+          if (isWarmLit) {
+            ctx.fillStyle = (seed % 2 === 0) ? '#fde68a' : '#fed7aa';
+          } else if (isSoftLit) {
+            ctx.fillStyle = '#cbd5e1';
+          } else {
+            ctx.fillStyle = '#1e293b';
+          }
+          ctx.fillRect(x + padX, y + padY, wW, wH);
+
+          // Center window mullion bar + balcony railing line
+          ctx.fillStyle = '#334155';
+          ctx.fillRect(x + padX + wW * 0.48, y + padY, 2, wH);
+          ctx.fillStyle = 'rgba(255,255,255,0.28)';
+          ctx.fillRect(x + padX, y + padY + wH * 0.68, wW, 1.5);
+        }
+      }
+
+      // Bold crisp vertical architectural frame pilasters
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, 12, 1024);
+      ctx.fillRect(500, 0, 12, 1024);
+
+      const tex = new THREE.CanvasTexture(c);
+      tex.anisotropy = 8;
+      tex.encoding = THREE.sRGBEncoding;
+      return tex;
+    }
+
+    function createXiCrownSignTexture(brand) {
       const canvas = document.createElement('canvas');
-      canvas.width = 1024; canvas.height = 160;
+      canvas.width = 512; canvas.height = 128;
       const ctx = canvas.getContext('2d');
-      ctx.fillStyle = '#f1f5f9'; ctx.fillRect(0, 0, 1024, 160);
-      ctx.fillStyle = '#93c5fd'; ctx.fillRect(0, 12, 1024, 18);
-      ctx.fillStyle = '#1e3a8a'; ctx.fillRect(0, 36, 1024, 76);
-      ctx.fillStyle = '#dc2626'; ctx.fillRect(0, 118, 1024, 7);
-      ctx.fillStyle = '#1d4ed8'; ctx.fillRect(0, 130, 1024, 14);
-      ctx.fillStyle = 'rgba(255,255,255,0.22)';
-      for (let x = 64; x < 1024; x += 64) ctx.fillRect(x, 0, 2, 160);
-      ctx.fillStyle = '#1e3a8a'; ctx.fillRect(670, 30, 264, 92);
-      ctx.strokeStyle = '#ffffff'; ctx.lineWidth = 4; ctx.strokeRect(676, 36, 252, 80);
-      ctx.fillStyle = '#ffffff'; ctx.font = '900 50px Inter, Arial, sans-serif';
-      ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-      ctx.fillText('LAWSON', 802, 77);
+      ctx.fillStyle = '#1e2633';
+      ctx.fillRect(0, 0, 512, 128);
+
+      // Top & bottom architectural silver-white trim
+      ctx.fillStyle = '#f8fafc';
+      ctx.fillRect(0, 0, 512, 10);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(16, 112, 480, 4);
+
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      if (brand === 'XI') {
+        // Stylized Xi emblem on center landmark crown
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '900 66px Georgia, serif';
+        ctx.fillText('X', 232, 66);
+        ctx.font = '700 56px Georgia, serif';
+        ctx.fillText('i', 282, 68);
+        ctx.fillStyle = '#fbbf24';
+        ctx.beginPath();
+        ctx.arc(282, 36, 6, 0, Math.PI * 2);
+        ctx.fill();
+      } else if (brand === 'HANULCHE') {
+        ctx.fillStyle = '#f8fafc';
+        ctx.font = '800 42px Inter, Arial, sans-serif';
+        ctx.fillText('HANULCHE', 256, 66);
+      }
       const tex = new THREE.CanvasTexture(canvas);
-      tex.anisotropy = 8; tex.encoding = THREE.sRGBEncoding;
+      tex.anisotropy = 8;
+      tex.encoding = THREE.sRGBEncoding;
+      return tex;
+    }
+
+    function createGateSignTexture() {
+      const canvas = document.createElement('canvas');
+      canvas.width = 1024; canvas.height = 180;
+      const ctx = canvas.getContext('2d');
+      ctx.fillStyle = '#1e242d';
+      ctx.fillRect(0, 0, 1024, 180);
+      ctx.fillStyle = '#d6c7b2';
+      ctx.fillRect(0, 0, 1024, 14);
+      ctx.fillRect(0, 166, 1024, 14);
+      ctx.fillStyle = '#fbbf24';
+      ctx.fillRect(60, 152, 904, 4);
+
+      ctx.fillStyle = '#fde68a';
+      ctx.font = '900 44px Georgia, serif';
+      ctx.textAlign = 'left';
+      ctx.textBaseline = 'middle';
+      ctx.fillText('Xi', 105, 90);
+
+      ctx.fillStyle = '#ffffff';
+      ctx.font = '900 52px "Noto Sans KR", sans-serif';
+      ctx.textAlign = 'center';
+      ctx.fillText('남산자이하늘채', 500, 90);
+
+      ctx.fillStyle = '#e2e8f0';
+      ctx.font = '800 32px Inter, Arial, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.fillText('HANULCHE', 935, 92);
+
+      const tex = new THREE.CanvasTexture(canvas);
+      tex.anisotropy = 8;
+      tex.encoding = THREE.sRGBEncoding;
       return tex;
     }
 
@@ -665,11 +808,11 @@
     function initScene() {
       const container = document.getElementById('canvas-container');
       scene = new THREE.Scene();
-      scene.background = new THREE.Color('#cce4ff');
-      scene.fog = new THREE.Fog('#dcecff', 52, 130);
+      scene.background = new THREE.Color('#b8d4f2');
+      scene.fog = new THREE.Fog('#cfe3f8', 62, 155);
 
-      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.04, 210);
-      camera.position.set(-11.5, 15.5, 19.5);
+      camera = new THREE.PerspectiveCamera(40, window.innerWidth / window.innerHeight, 0.04, 240);
+      camera.position.set(-9.5, 10.8, 26.5);
 
       renderer = new THREE.WebGLRenderer({ antialias: true, powerPreference: 'high-performance' });
       renderer.setSize(window.innerWidth, window.innerHeight);
@@ -689,8 +832,8 @@
       controls.maxPolarAngle = Math.PI / 2 - 0.04;
       controls.minPolarAngle = 0.08;
       controls.minDistance = 0.25;
-      controls.maxDistance = 46;
-      controls.target.set(0.0, 0.3, -0.4);
+      controls.maxDistance = 56;
+      controls.target.set(0.0, 4.2, -2.5);
       controls.update();
 
       scene.add(new THREE.HemisphereLight(0xfffaf0, 0x9c8f7a, 0.8));
@@ -795,76 +938,73 @@
       const roadWhiteMat = new THREE.MeshBasicMaterial({ color: '#f8fafc' });
       const roadYellowMat = new THREE.MeshBasicMaterial({ color: '#facc15' });
 
-      // Surrounding 4-way city streets & sidewalks around the Lawson parking board (28.6 x 18.0 -> x:±14.3, z:±9.0)
-      // Sidewalk Apron under the outer perimeter
-      const outerBlockWalk = new THREE.Mesh(new THREE.BoxGeometry(31.2, 0.08, 20.6), sidewalkMat);
-      outerBlockWalk.position.set(0, -0.04, 0); outerBlockWalk.receiveShadow = true;
+      // Surrounding 4-way city streets & sidewalks around the Namsan Xi Hanulche complex block
+      const outerBlockWalk = new THREE.Mesh(new THREE.BoxGeometry(45.2, 0.08, 30.0), sidewalkMat);
+      outerBlockWalk.position.set(0, -0.04, -5.2); outerBlockWalk.receiveShadow = true;
       cityGroup.add(outerBlockWalk);
 
-      // Front Main Boulevard (East-West, z = 9.0..15.2) & Back Service Street (z = -15.2..-9.0)
-      [12.2, -12.2].forEach((rz) => {
-        const road = new THREE.Mesh(new THREE.PlaneGeometry(170, 5.8), roadMat);
+      // Front Main Boulevard (East-West, z = 12.2) & Back Street behind the complex (z = -23.5)
+      [12.2, -23.5].forEach((rz) => {
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(180, 5.8), roadMat);
         road.rotation.x = -Math.PI / 2; road.position.set(0, -0.025, rz); road.receiveShadow = true;
         cityGroup.add(road);
 
-        // Double yellow center line & white edge lines
         [-0.1, 0.1].forEach((dy) => {
-          const yLine = new THREE.Mesh(new THREE.PlaneGeometry(170, 0.09), roadYellowMat);
+          const yLine = new THREE.Mesh(new THREE.PlaneGeometry(180, 0.09), roadYellowMat);
           yLine.rotation.x = -Math.PI / 2; yLine.position.set(0, -0.02, rz + dy);
           cityGroup.add(yLine);
         });
         [-2.75, 2.75].forEach((ey) => {
-          const wLine = new THREE.Mesh(new THREE.PlaneGeometry(170, 0.1), roadWhiteMat);
+          const wLine = new THREE.Mesh(new THREE.PlaneGeometry(180, 0.1), roadWhiteMat);
           wLine.rotation.x = -Math.PI / 2; wLine.position.set(0, -0.02, rz + ey);
           cityGroup.add(wLine);
         });
       });
 
-      // Left & Right Cross-Streets (North-South, x = ±17.2)
-      [-17.2, 17.2].forEach((rx) => {
-        const road = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 170), roadMat);
+      // Left & Right Cross-Streets flanking the Namsan Xi Hanulche complex (x = ±25.4)
+      [-25.4, 25.4].forEach((rx) => {
+        const road = new THREE.Mesh(new THREE.PlaneGeometry(5.6, 180), roadMat);
         road.rotation.x = -Math.PI / 2; road.position.set(rx, -0.024, 0); road.receiveShadow = true;
         cityGroup.add(road);
 
         for (let z = -66; z <= 66; z += 3.6) {
-          if (Math.abs(Math.abs(z) - 12.2) < 3.4) continue; // keep intersection clear
+          if (Math.abs(z - 12.2) < 3.4 || Math.abs(z + 23.5) < 3.4) continue;
           const dash = new THREE.Mesh(new THREE.PlaneGeometry(0.11, 1.8), roadYellowMat);
           dash.rotation.x = -Math.PI / 2; dash.position.set(rx, -0.019, z);
           cityGroup.add(dash);
         }
       });
 
-      // Driveway aprons connecting Lawson parking lot (board z=+9) cleanly to the main front boulevard
+      // Driveway aprons connecting parking lot (board z=+9) cleanly to the main front boulevard
       [-10.4, 10.4].forEach((ax) => {
         const apron = new THREE.Mesh(new THREE.PlaneGeometry(3.2, 1.3), roadMat);
         apron.rotation.x = -Math.PI / 2; apron.position.set(ax, -0.012, 9.05);
         cityGroup.add(apron);
       });
 
-      // Zebra Crosswalks at the front left & front right intersections
-      [-12.8, 12.8].forEach((cx) => {
+      // Zebra Crosswalks at the front boulevard & flanking intersections
+      [-15.2, 15.2].forEach((cx) => {
         for (let i = -2; i <= 2; i++) {
           const stripe = new THREE.Mesh(new THREE.PlaneGeometry(0.45, 2.3), roadWhiteMat);
           stripe.rotation.x = -Math.PI / 2; stripe.position.set(cx + i * 0.72, -0.018, 12.2);
           cityGroup.add(stripe);
         }
       });
-      [-17.2, 17.2].forEach((cx) => {
+      [-25.4, 25.4].forEach((cx) => {
         for (let i = -2; i <= 2; i++) {
           const stripe = new THREE.Mesh(new THREE.PlaneGeometry(2.3, 0.45), roadWhiteMat);
-          stripe.rotation.x = -Math.PI / 2; stripe.position.set(cx, -0.018, 8.2 + i * 0.72);
+          stripe.rotation.x = -Math.PI / 2; stripe.position.set(cx, -0.018, 7.6 + i * 0.72);
           cityGroup.add(stripe);
         }
       });
 
-      // Outer Block Sidewalk Pads around the city skyline & neighborhood blocks
+      // Outer Block Sidewalk Pads around the neighborhood blocks
       const cityPads = [
-        { x: 0, z: -29, w: 96, d: 28 },
-        { x: -34, z: 0, w: 28, d: 18 },
-        { x: 34, z: 0, w: 28, d: 18 },
-        { x: -34, z: 28, w: 28, d: 24 },
-        { x: 34, z: 28, w: 28, d: 24 },
-        { x: 0, z: 27, w: 32, d: 22 }
+        { x: -42, z: -2, w: 26, d: 22 },
+        { x: 42,  z: -2, w: 26, d: 22 },
+        { x: -42, z: 28, w: 26, d: 24 },
+        { x: 42,  z: 28, w: 26, d: 24 },
+        { x: 0,   z: 27, w: 42, d: 22 }
       ];
       cityPads.forEach((p) => {
         const pad = new THREE.Mesh(new THREE.BoxGeometry(p.w, 0.14, p.d), sidewalkMat);
@@ -872,17 +1012,17 @@
         cityGroup.add(pad);
       });
 
-      // Traffic Signal Poles at front intersections
+      // Traffic Signal Poles at front boulevard crosswalks
       const poleDarkMat = new THREE.MeshStandardMaterial({ color: '#334155', metalness: 0.55, roughness: 0.4 });
       const sigHousingMat = new THREE.MeshStandardMaterial({ color: '#1e293b', roughness: 0.6 });
       const redLightMat = new THREE.MeshBasicMaterial({ color: '#ef4444' });
       const amberLightMat = new THREE.MeshBasicMaterial({ color: '#f59e0b' });
       const greenLightMat = new THREE.MeshBasicMaterial({ color: '#22c55e' });
       [
-        { x: -14.8, z: 9.4, rot: 0 },
-        { x: 14.8, z: 9.4, rot: 0 },
-        { x: -14.8, z: 15.0, rot: Math.PI },
-        { x: 14.8, z: 15.0, rot: Math.PI }
+        { x: -17.8, z: 9.4, rot: 0 },
+        { x: 17.8, z: 9.4, rot: 0 },
+        { x: -17.8, z: 15.0, rot: Math.PI },
+        { x: 17.8, z: 15.0, rot: Math.PI }
       ].forEach((tf, idx) => {
         const sig = new THREE.Group();
         const post = new THREE.Mesh(new THREE.CylinderGeometry(0.07, 0.09, 2.7, 8), poleDarkMat);
@@ -903,36 +1043,22 @@
         cityGroup.add(sig);
       });
 
-      // Procedural City Skyline & Town Buildings (kept clear of foreground camera sightlines)
+      // Procedural Neighborhood Shops on Left, Right, and Far Front (back is reserved for Namsan Xi Hanulche!)
       const buildingSpecs = [
-        // Back skyline behind Lawson (z = -18 .. -39)
-        { x: -34, z: -22, w: 8.5, h: 11.5, d: 7.5, wall: '#e2e8f0', roof: '#94a3b8', win: '#60a5fa', lit: '#fef08a', cols: 5, rows: 7 },
-        { x: -23, z: -20, w: 6.5, h: 8.2,  d: 6.5, wall: '#fde68a', roof: '#d97706', win: '#475569', lit: '#fef9c3', cols: 4, rows: 5 },
-        { x: -12, z: -21, w: 8.0, h: 13.5, d: 7.0, wall: '#cbd5e1', roof: '#64748b', win: '#38bdf8', lit: '#fde047', cols: 5, rows: 8 },
-        { x: -1,  z: -24, w: 9.5, h: 17.5, d: 8.0, wall: '#93c5fd', roof: '#3b82f6', win: '#1e3a8a', lit: '#fef08a', cols: 6, rows: 10 },
-        { x: 10,  z: -21, w: 7.5, h: 12.0, d: 6.8, wall: '#fecdd3', roof: '#e11d48', win: '#475569', lit: '#fef3c7', cols: 4, rows: 7 },
-        { x: 21,  z: -20, w: 7.0, h: 9.2,  d: 6.8, wall: '#bbf7d0', roof: '#16a34a', win: '#334155', lit: '#fef08a', cols: 4, rows: 6 },
-        { x: 32,  z: -23, w: 9.0, h: 14.5, d: 7.5, wall: '#ddd6fe', roof: '#7c3aed', win: '#312e81', lit: '#fde68a', cols: 5, rows: 8 },
-        // Deeper skyline row (z = -33 .. -39) for vertical depth
-        { x: -28, z: -34, w: 9.5, h: 20.0, d: 8.5, wall: '#bae6fd', roof: '#0284c7', win: '#0f172a', lit: '#fef08a', cols: 5, rows: 11 },
-        { x: -15, z: -35, w: 10.0, h: 23.5, d: 9.0, wall: '#e2e8f0', roof: '#475569', win: '#0ea5e9', lit: '#fef9c3', cols: 6, rows: 12 },
-        { x: -2,  z: -37, w: 8.5, h: 15.0, d: 8.0, wall: '#fed7aa', roof: '#ea580c', win: '#334155', lit: '#fef08a', cols: 5, rows: 9 },
-        { x: 12,  z: -35, w: 10.0, h: 22.0, d: 8.5, wall: '#cbd5e1', roof: '#334155', win: '#38bdf8', lit: '#fde047', cols: 6, rows: 12 },
-        { x: 26,  z: -34, w: 9.0, h: 18.0, d: 8.0, wall: '#a7f3d0', roof: '#059669', win: '#1e293b', lit: '#fef08a', cols: 5, rows: 10 },
-        // Left neighborhood shops & apartments (x = -26 .. -35)
-        { x: -26, z: -8,  w: 6.8, h: 5.5, d: 7.2, wall: '#fed7aa', roof: '#c2410c', win: '#475569', lit: '#fef08a', cols: 4, rows: 3, awning: '#ef4444' },
-        { x: -27, z: 2,   w: 7.2, h: 7.8, d: 8.0, wall: '#e0f2fe', roof: '#0369a1', win: '#334155', lit: '#fef9c3', cols: 4, rows: 5 },
-        { x: -26, z: 21,  w: 6.5, h: 4.8, d: 6.5, wall: '#fef3c7', roof: '#d97706', win: '#475569', lit: '#fef08a', cols: 4, rows: 3, awning: '#16a34a' },
-        { x: -37, z: 8,   w: 8.0, h: 11.0, d: 9.0, wall: '#cbd5e1', roof: '#64748b', win: '#38bdf8', lit: '#fef08a', cols: 5, rows: 7 },
-        // Right neighborhood shops & apartments (x = +26 .. +37)
-        { x: 26,  z: -8,  w: 7.0, h: 6.4, d: 7.4, wall: '#fce7f3', roof: '#be185d', win: '#334155', lit: '#fef08a', cols: 4, rows: 4, awning: '#2563eb' },
-        { x: 27,  z: 2,   w: 7.5, h: 9.5, d: 8.2, wall: '#e2e8f0', roof: '#475569', win: '#0ea5e9', lit: '#fef9c3', cols: 4, rows: 6 },
-        { x: 26,  z: 21,  w: 6.8, h: 5.0, d: 6.8, wall: '#dcfce7', roof: '#15803d', win: '#334155', lit: '#fef08a', cols: 4, rows: 3, awning: '#f59e0b' },
-        { x: 37,  z: 8,   w: 8.0, h: 12.5, d: 9.0, wall: '#bfdbfe', roof: '#1d4ed8', win: '#1e3a8a', lit: '#fef08a', cols: 5, rows: 7 },
-        // Far front shops (z = 27..32) kept medium-low so camera view is never obstructed
-        { x: -11, z: 29,  w: 7.5, h: 4.2, d: 6.0, wall: '#ffedd5', roof: '#ea580c', win: '#475569', lit: '#fef08a', cols: 4, rows: 2, awning: '#ef4444' },
-        { x: 1,   z: 30,  w: 8.5, h: 5.2, d: 6.2, wall: '#e0e7ff', roof: '#4338ca', win: '#334155', lit: '#fef9c3', cols: 5, rows: 3 },
-        { x: 12,  z: 29,  w: 7.2, h: 4.0, d: 6.0, wall: '#fef9c3', roof: '#ca8a04', win: '#475569', lit: '#fef08a', cols: 4, rows: 2, awning: '#0ea5e9' }
+        // Left neighborhood shops & apartments (x = -34 .. -45)
+        { x: -34, z: -8,  w: 6.8, h: 5.5, d: 7.2, wall: '#fed7aa', roof: '#c2410c', win: '#475569', lit: '#fef08a', cols: 4, rows: 3, awning: '#ef4444' },
+        { x: -35, z: 2,   w: 7.2, h: 7.8, d: 8.0, wall: '#e0f2fe', roof: '#0369a1', win: '#334155', lit: '#fef9c3', cols: 4, rows: 5 },
+        { x: -34, z: 21,  w: 6.5, h: 4.8, d: 6.5, wall: '#fef3c7', roof: '#d97706', win: '#475569', lit: '#fef08a', cols: 4, rows: 3, awning: '#16a34a' },
+        { x: -45, z: 8,   w: 8.0, h: 11.0, d: 9.0, wall: '#cbd5e1', roof: '#64748b', win: '#38bdf8', lit: '#fef08a', cols: 5, rows: 7 },
+        // Right neighborhood shops & apartments (x = +34 .. +45)
+        { x: 34,  z: -8,  w: 7.0, h: 6.4, d: 7.4, wall: '#fce7f3', roof: '#be185d', win: '#334155', lit: '#fef08a', cols: 4, rows: 4, awning: '#2563eb' },
+        { x: 35,  z: 2,   w: 7.5, h: 9.5, d: 8.2, wall: '#e2e8f0', roof: '#475569', win: '#0ea5e9', lit: '#fef9c3', cols: 4, rows: 6 },
+        { x: 34,  z: 21,  w: 6.8, h: 5.0, d: 6.8, wall: '#dcfce7', roof: '#15803d', win: '#334155', lit: '#fef08a', cols: 4, rows: 3, awning: '#f59e0b' },
+        { x: 45,  z: 8,   w: 8.0, h: 12.5, d: 9.0, wall: '#bfdbfe', roof: '#1d4ed8', win: '#1e3a8a', lit: '#fef08a', cols: 5, rows: 7 },
+        // Far front shops (z = 29..31) kept low so camera view is never obstructed
+        { x: -11, z: 30,  w: 7.5, h: 3.8, d: 6.0, wall: '#ffedd5', roof: '#ea580c', win: '#475569', lit: '#fef08a', cols: 4, rows: 2, awning: '#ef4444' },
+        { x: 1,   z: 31,  w: 8.5, h: 4.4, d: 6.2, wall: '#e0e7ff', roof: '#4338ca', win: '#334155', lit: '#fef9c3', cols: 5, rows: 3 },
+        { x: 12,  z: 30,  w: 7.2, h: 3.6, d: 6.0, wall: '#fef9c3', roof: '#ca8a04', win: '#475569', lit: '#fef08a', cols: 4, rows: 2, awning: '#0ea5e9' }
       ];
 
       buildingSpecs.forEach((b) => {
@@ -976,10 +1102,9 @@
       const cityLeafMat = new THREE.MeshStandardMaterial({ color: '#16a34a', roughness: 0.78 });
       const cityLeafLightMat = new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.78 });
       [
-        [-21.5, -16], [-21.5, -2], [-21.5, 8], [-21.5, 17.5],
-        [21.5, -16], [21.5, -2], [21.5, 8], [21.5, 17.5],
-        [-11, 18.5], [-3, 18.5], [5, 18.5], [11.5, 18.5],
-        [-16, -16], [0, -16.8], [16, -16]
+        [-29.2, -12], [-29.2, -1], [-29.2, 8], [-29.2, 18.5],
+        [29.2, -12], [29.2, -1], [29.2, 8], [29.2, 18.5],
+        [-12, 18.5], [-4, 18.5], [4, 18.5], [12, 18.5]
       ].forEach(([tx, tz], i) => {
         const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.14, 0.2, 1.4, 7), cityTrunkMat);
         trunk.position.set(tx, 0.7, tz);
@@ -1084,116 +1209,195 @@
         dioramaGroup.add(pole, arm, bulb);
       });
 
-      const storeGroup = new THREE.Group();
-      storeGroup.position.set(0.0, 0, -6.5);
+      // =======================================================================
+      // 남산자이하늘채 (Namsan Xi Hanulche) 단지내 상가 · 문주 · 조경 · 7개 동 스카이라인
+      // =======================================================================
+      const complexGroup = new THREE.Group();
+      complexGroup.position.set(0.0, 0, -6.5);
 
-      const sidewalk = new THREE.Mesh(
-        new THREE.BoxGeometry(27.4, 0.14, 1.8),
-        new THREE.MeshStandardMaterial({ color: '#27272a', roughness: 0.78 })
+      // Front pedestrian promenade bordering the top parking row
+      const promenade = new THREE.Mesh(
+        new THREE.BoxGeometry(27.6, 0.14, 1.85),
+        new THREE.MeshStandardMaterial({ color: '#cbd5e1', roughness: 0.78 })
       );
-      sidewalk.position.set(0, 0.07, 1.7); sidewalk.receiveShadow = true; sidewalk.castShadow = true;
-      storeGroup.add(sidewalk);
+      promenade.position.set(0, 0.07, 1.68); promenade.receiveShadow = true; promenade.castShadow = true;
+      complexGroup.add(promenade);
 
-      const interiorBack = new THREE.Mesh(
-        new THREE.BoxGeometry(19.6, 2.75, 2.7),
-        new THREE.MeshStandardMaterial({ color: '#fef3c7', emissive: '#fde68a', emissiveIntensity: 0.28, roughness: 0.8 })
+      const graniteLightMat = new THREE.MeshStandardMaterial({ color: '#d6d3d1', roughness: 0.72 });
+      const graniteDarkMat = new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.65 });
+      const bronzeFrameMat = new THREE.MeshStandardMaterial({ color: '#292524', metalness: 0.45, roughness: 0.4 });
+      const shopGlowMat = new THREE.MeshStandardMaterial({ color: '#fef3c7', emissive: '#fde68a', emissiveIntensity: 0.52, roughness: 0.7 });
+      const shopGlassMat = new THREE.MeshPhysicalMaterial({ color: '#e0f2fe', transparent: true, opacity: 0.28, roughness: 0.06, clearcoat: 1.0 });
+
+      // Left & Right Street-Level Commercial Podium (단지내 상가) matching Namsan Xi Hanulche's illuminated retail base
+      [-8.7, 8.7].forEach((sideX) => {
+        const podiumBody = new THREE.Mesh(new THREE.BoxGeometry(9.2, 2.25, 2.9), graniteLightMat);
+        podiumBody.position.set(sideX, 1.12, -0.45);
+        podiumBody.castShadow = true; podiumBody.receiveShadow = true;
+        complexGroup.add(podiumBody);
+
+        // Illuminated recessed retail storefronts
+        const glowBack = new THREE.Mesh(new THREE.BoxGeometry(8.4, 1.55, 0.35), shopGlowMat);
+        glowBack.position.set(sideX, 0.85, 0.82);
+        complexGroup.add(glowBack);
+
+        const glassFront = new THREE.Mesh(new THREE.PlaneGeometry(8.4, 1.55), shopGlassMat);
+        glassFront.position.set(sideX, 0.85, 1.02);
+        complexGroup.add(glassFront);
+
+        // Granite piers & dark bronze storefront mullions
+        for (let px = -4.2; px <= 4.21; px += 1.68) {
+          const pier = new THREE.Mesh(new THREE.BoxGeometry(0.18, 1.75, 0.24), graniteDarkMat);
+          pier.position.set(sideX + px, 0.9, 1.01);
+          complexGroup.add(pier);
+        }
+        const lintel = new THREE.Mesh(new THREE.BoxGeometry(9.35, 0.32, 3.05), graniteDarkMat);
+        lintel.position.set(sideX, 2.3, -0.45);
+        complexGroup.add(lintel);
+      });
+
+      // Grand Central Apartment Entrance Gate (남산자이하늘채 문주)
+      const gateGroup = new THREE.Group();
+      [-3.15, 3.15].forEach((gx) => {
+        const pillar = new THREE.Mesh(new THREE.BoxGeometry(0.95, 3.25, 1.25), graniteLightMat);
+        pillar.position.set(gx, 1.62, 0.35);
+        pillar.castShadow = true; pillar.receiveShadow = true;
+        const accentStrip = new THREE.Mesh(new THREE.BoxGeometry(0.22, 3.26, 1.3), bronzeFrameMat);
+        accentStrip.position.set(gx + (gx < 0 ? 0.32 : -0.32), 1.62, 0.35);
+        gateGroup.add(pillar, accentStrip);
+      });
+      const gateCanopy = new THREE.Mesh(new THREE.BoxGeometry(8.8, 0.78, 1.85), bronzeFrameMat);
+      gateCanopy.position.set(0, 3.45, 0.42);
+      gateCanopy.castShadow = true;
+      const gateCornice = new THREE.Mesh(new THREE.BoxGeometry(9.1, 0.16, 2.0), graniteLightMat);
+      gateCornice.position.set(0, 3.9, 0.42);
+      const gateSign = new THREE.Mesh(
+        new THREE.PlaneGeometry(7.9, 0.68),
+        new THREE.MeshStandardMaterial({ map: createGateSignTexture(), roughness: 0.25, emissive: '#fffbeb', emissiveIntensity: 0.22 })
       );
-      interiorBack.position.set(0.0, 1.42, -0.25);
-      storeGroup.add(interiorBack);
+      gateSign.position.set(0, 3.45, 1.36);
+      gateGroup.add(gateCanopy, gateCornice, gateSign);
+      complexGroup.add(gateGroup);
 
-      const shelfMat = new THREE.MeshStandardMaterial({ color: '#475569', roughness: 0.6 });
-      const itemColors = ['#ef4444', '#3b82f6', '#22c55e', '#f59e0b', '#ec4899'];
-      for (let sx = -7.2; sx <= 7.2; sx += 2.4) {
-        const shelf = new THREE.Mesh(new THREE.BoxGeometry(1.7, 1.65, 0.45), shelfMat);
-        shelf.position.set(sx, 0.88, 0.35);
-        storeGroup.add(shelf);
-        for (let row = 0; row < 3; row++) {
-          const item = new THREE.Mesh(
-            new THREE.BoxGeometry(1.5, 0.22, 0.5),
-            new THREE.MeshStandardMaterial({ color: itemColors[(row + Math.abs(Math.round(sx))) % itemColors.length] })
-          );
-          item.position.set(sx, 0.48 + row * 0.45, 0.4);
-          storeGroup.add(item);
+      // Landscaped Stone Retaining Deck behind the gate + Lush Green & Autumn Trees + Warm Park Lights
+      const gardenDeck = new THREE.Mesh(
+        new THREE.BoxGeometry(44.0, 2.15, 9.5),
+        new THREE.MeshStandardMaterial({ color: '#64748b', roughness: 0.82 })
+      );
+      gardenDeck.position.set(0, 1.07, -6.2);
+      gardenDeck.receiveShadow = true;
+      complexGroup.add(gardenDeck);
+
+      const trunkMat = new THREE.MeshStandardMaterial({ color: '#5c2d0c', roughness: 0.9 });
+      const foliageMats = [
+        new THREE.MeshStandardMaterial({ color: '#15803d', roughness: 0.78 }),
+        new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.78 }),
+        new THREE.MeshStandardMaterial({ color: '#d97706', roughness: 0.78 }), // autumn amber
+        new THREE.MeshStandardMaterial({ color: '#dc2626', roughness: 0.78 })  // autumn maple
+      ];
+      const warmGardenBulbMat = new THREE.MeshBasicMaterial({ color: '#fef08a' });
+      for (let tx = -18.0; tx <= 18.0; tx += 2.4) {
+        if (Math.abs(tx) < 2.2) continue; // keep main entrance axis open
+        const tz = -1.6 - (Math.abs(Math.round(tx)) % 3) * 0.75;
+        const baseH = Math.abs(tx) <= 13.0 ? 2.25 : 2.15;
+        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.11, 0.16, 0.95, 7), trunkMat);
+        trunk.position.set(tx, baseH + 0.42, tz);
+        const fMat = foliageMats[Math.abs(Math.round(tx * 3)) % foliageMats.length];
+        const crown1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.76, 0), fMat);
+        crown1.position.set(tx, baseH + 1.15, tz);
+        const crown2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.52, 0), foliageMats[(Math.abs(Math.round(tx)) + 1) % 2]);
+        crown2.position.set(tx + 0.22, baseH + 1.55, tz - 0.15);
+        complexGroup.add(trunk, crown1, crown2);
+
+        if (Math.abs(Math.round(tx)) % 4 === 0) {
+          const glowOrb = new THREE.Mesh(new THREE.SphereGeometry(0.11, 8, 8), warmGardenBulbMat);
+          glowOrb.position.set(tx + 0.4, baseH + 0.7, tz + 0.45);
+          complexGroup.add(glowOrb);
         }
       }
 
-      const wallMat = new THREE.MeshStandardMaterial({ color: '#f1f5f9', roughness: 0.65 });
-      const leftWall = new THREE.Mesh(new THREE.BoxGeometry(0.22, 2.95, 3.0), wallMat);
-      leftWall.position.set(-9.9, 1.48, -0.25); leftWall.castShadow = true;
-      const rightWall = leftWall.clone(); rightWall.position.x = 9.9;
-      const backWall = new THREE.Mesh(new THREE.BoxGeometry(20.0, 2.95, 0.22), wallMat);
-      backWall.position.set(0.0, 1.48, -1.65); backWall.castShadow = true;
-      storeGroup.add(leftWall, rightWall, backWall);
+      // 7 Iconic High-Rise Apartment Towers of Namsan Xi Hanulche (modeled directly on the complex skyline!)
+      const xiFacadeTex = createXiTowerFacadeTexture('xi-center', 28);
+      const hanulcheFacadeTex = createXiTowerFacadeTexture('hanulche', 25);
+      const wingFacadeTex = createXiTowerFacadeTexture('wing', 22);
 
-      const glassPane = new THREE.Mesh(
-        new THREE.PlaneGeometry(19.6, 2.35),
-        new THREE.MeshPhysicalMaterial({ color: '#e0f2fe', transparent: true, opacity: 0.28, roughness: 0.05, clearcoat: 1.0 })
-      );
-      glassPane.position.set(0.0, 1.28, 1.24);
-      storeGroup.add(glassPane);
+      const xiCrownTex = createXiCrownSignTexture('XI');
+      const hanulcheCrownTex = createXiCrownSignTexture('HANULCHE');
+      const whiteFrameMat = new THREE.MeshStandardMaterial({ color: '#f8fafc', roughness: 0.55 });
+      const darkCrownMat = new THREE.MeshStandardMaterial({ color: '#1e2633', roughness: 0.6 });
+      const bronzeSideMat = new THREE.MeshStandardMaterial({ color: '#8c654c', roughness: 0.7 });
+      const mistyRearMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.85 });
 
-      const frameMat = new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.4, metalness: 0.3 });
-      for (let mx = -9.6; mx <= 9.6; mx += 1.92) {
-        const mullion = new THREE.Mesh(new THREE.BoxGeometry(0.12, 2.45, 0.14), frameMat);
-        mullion.position.set(mx, 1.3, 1.25); mullion.castShadow = true;
-        storeGroup.add(mullion);
-      }
-      const lowerSill = new THREE.Mesh(new THREE.BoxGeometry(19.8, 0.34, 0.18), wallMat);
-      lowerSill.position.set(0.0, 0.22, 1.25);
-      storeGroup.add(lowerSill);
-
-      const fasciaBox = new THREE.Mesh(
-        new THREE.BoxGeometry(20.3, 0.78, 0.68),
-        new THREE.MeshStandardMaterial({ color: '#e2e8f0', roughness: 0.45 })
-      );
-      fasciaBox.position.set(0.0, 2.92, 1.34); fasciaBox.castShadow = true;
-      storeGroup.add(fasciaBox);
-
-      const signFace = new THREE.Mesh(
-        new THREE.PlaneGeometry(20.2, 0.75),
-        new THREE.MeshStandardMaterial({ map: createLawsonSignTexture(), roughness: 0.28, emissive: '#ffffff', emissiveIntensity: 0.14 })
-      );
-      signFace.position.set(0.0, 2.92, 1.69);
-      storeGroup.add(signFace);
-
-      const roofBase = new THREE.Mesh(
-        new THREE.BoxGeometry(20.5, 0.26, 3.7),
-        new THREE.MeshStandardMaterial({ color: '#18181b', roughness: 0.65 })
-      );
-      roofBase.position.set(0.0, 3.4, -0.05); roofBase.castShadow = true; roofBase.receiveShadow = true;
-      storeGroup.add(roofBase);
-
-      const ridgeMat = new THREE.MeshStandardMaterial({ color: '#bfc5cd', roughness: 0.45, metalness: 0.4 });
-      for (let rx = -9.8; rx <= 9.8; rx += 0.25) {
-        const ridge = new THREE.Mesh(new THREE.BoxGeometry(0.12, 0.06, 3.05), ridgeMat);
-        ridge.position.set(rx, 3.55, -0.05); ridge.receiveShadow = true;
-        storeGroup.add(ridge);
-      }
-
-      const rack = new THREE.Mesh(
-        new THREE.BoxGeometry(0.7, 1.5, 0.55),
-        new THREE.MeshStandardMaterial({ color: '#991b1b', roughness: 0.4 })
-      );
-      rack.position.set(9.45, 0.88, 1.6); rack.castShadow = true;
-      storeGroup.add(rack);
-
-      // Planters & trees flanking the expanded Lawson plaza
-      const planterMat = new THREE.MeshStandardMaterial({ color: '#94a3b8', roughness: 0.75 });
-      const trunkMat = new THREE.MeshStandardMaterial({ color: '#78350f', roughness: 0.9 });
-      const leafMat = new THREE.MeshStandardMaterial({ color: '#22c55e', roughness: 0.75 });
-      [-11.8, 11.8].forEach((tx) => {
-        const planter = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.35, 1.5), planterMat);
-        planter.position.set(tx, 0.25, 1.45); planter.castShadow = true; planter.receiveShadow = true;
-        const trunk = new THREE.Mesh(new THREE.CylinderGeometry(0.13, 0.17, 1.15, 8), trunkMat);
-        trunk.position.set(tx, 0.95, 1.45); trunk.castShadow = true;
-        const crown1 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.78, 0), leafMat);
-        crown1.position.set(tx, 1.85, 1.45); crown1.castShadow = true;
-        const crown2 = new THREE.Mesh(new THREE.DodecahedronGeometry(0.55, 0), leafMat);
-        crown2.position.set(tx + 0.15, 2.38, 1.42); crown2.castShadow = true;
-        storeGroup.add(planter, trunk, crown1, crown2);
+      // Subtle background apartment silhouettes peeking between main towers for multi-row depth
+      [
+        { x: 3.1, z: -11.8, w: 4.4, h: 12.6, d: 3.8 },
+        { x: -15.6, z: -12.4, w: 4.6, h: 11.2, d: 3.8 }
+      ].forEach((bg) => {
+        const bgTower = new THREE.Mesh(new THREE.BoxGeometry(bg.w, bg.h, bg.d), mistyRearMat);
+        bgTower.position.set(bg.x, 2.1 + bg.h / 2, bg.z);
+        complexGroup.add(bgTower);
       });
 
-      dioramaGroup.add(storeGroup);
+      const towerDefs = [
+        // Left-to-right stepped skyline matching the uploaded Namsan Xi Hanulche rendering
+        { x: -19.2, z: -8.6, w: 5.2, h: 9.8,  d: 4.0, tex: wingFacadeTex,     crown: null },
+        { x: -13.8, z: -9.6, w: 4.8, h: 11.6, d: 4.0, tex: xiFacadeTex,       crown: null },
+        { x: -8.6,  z: -7.2, w: 5.3, h: 13.4, d: 4.2, tex: hanulcheFacadeTex, crown: null },
+        { x: -1.1,  z: -6.0, w: 6.8, h: 16.6, d: 4.8, tex: xiFacadeTex,       crown: 'XI',       slantedFin: true },
+        { x: 7.0,   z: -6.5, w: 6.2, h: 14.4, d: 4.5, tex: hanulcheFacadeTex, crown: 'HANULCHE', slantedFin: false },
+        { x: 12.9,  z: -8.2, w: 5.2, h: 13.2, d: 4.2, tex: xiFacadeTex,       crown: null },
+        { x: 18.8,  z: -7.6, w: 5.4, h: 11.2, d: 4.2, tex: wingFacadeTex,     crown: null }
+      ];
+
+      towerDefs.forEach((t) => {
+        const frontBackMat = new THREE.MeshStandardMaterial({
+          map: t.tex,
+          roughness: 0.58,
+          emissive: '#fde68a',
+          emissiveMap: t.tex,
+          emissiveIntensity: 0.14
+        });
+        const mats = [bronzeSideMat, whiteFrameMat, darkCrownMat, darkCrownMat, frontBackMat, frontBackMat];
+        const towerMesh = new THREE.Mesh(new THREE.BoxGeometry(t.w, t.h, t.d), mats);
+        const baseY = 2.1;
+        towerMesh.position.set(t.x, baseY + t.h / 2, t.z);
+        towerMesh.castShadow = true;
+        towerMesh.receiveShadow = true;
+        complexGroup.add(towerMesh);
+
+        // Crisp white architectural rooftop crown frame
+        const topY = baseY + t.h;
+        const crownH = t.crown ? 1.05 : 0.65;
+        const crownBox = new THREE.Mesh(new THREE.BoxGeometry(t.w * 0.96, crownH, t.d * 0.92), darkCrownMat);
+        crownBox.position.set(t.x, topY + crownH / 2, t.z);
+        complexGroup.add(crownBox);
+
+        // Signature white cornice cap & vertical side fins
+        const capBar = new THREE.Mesh(new THREE.BoxGeometry(t.w + 0.22, 0.18, t.d + 0.2), whiteFrameMat);
+        capBar.position.set(t.x, topY + crownH + 0.08, t.z);
+        if (t.slantedFin) capBar.rotation.z = -0.045; // Subtle iconic angled roofline on the main Xi tower!
+        complexGroup.add(capBar);
+
+        const leftFin = new THREE.Mesh(new THREE.BoxGeometry(0.22, t.h + crownH, t.d + 0.14), whiteFrameMat);
+        leftFin.position.set(t.x - t.w / 2, baseY + (t.h + crownH) / 2, t.z);
+        const rightFin = new THREE.Mesh(new THREE.BoxGeometry(0.22, t.h + crownH, t.d + 0.14), whiteFrameMat);
+        rightFin.position.set(t.x + t.w / 2, baseY + (t.h + crownH) / 2, t.z);
+        complexGroup.add(leftFin, rightFin);
+
+        // Illuminated Xi / HANULCHE brand header on landmark towers
+        if (t.crown) {
+          const cTex = t.crown === 'XI' ? xiCrownTex : hanulcheCrownTex;
+          const signW = t.w * 0.72;
+          const signPlane = new THREE.Mesh(
+            new THREE.PlaneGeometry(signW, crownH * 0.86),
+            new THREE.MeshStandardMaterial({ map: cTex, roughness: 0.3, emissive: '#ffffff', emissiveIntensity: 0.22 })
+          );
+          signPlane.position.set(t.x - (t.crown === 'XI' ? t.w * 0.08 : 0), topY + crownH * 0.5, t.z + t.d * 0.46 + 0.02);
+          complexGroup.add(signPlane);
+        }
+      });
+
+      dioramaGroup.add(complexGroup);
     }
 
     // =========================================================================
@@ -2211,10 +2415,10 @@
       dioramaGroup.visible = true;
       studioGroup.visible = false;
       carObjects.forEach((obj) => { obj.mesh.visible = (obj.stallIndex !== null); });
-      scene.background = new THREE.Color('#cce4ff');
-      scene.fog = new THREE.Fog('#dcecff', 52, 130);
+      scene.background = new THREE.Color('#b8d4f2');
+      scene.fog = new THREE.Fog('#cfe3f8', 62, 155);
       controls.minDistance = 0.25;
-      controls.maxDistance = 46;
+      controls.maxDistance = 56;
       controls.maxPolarAngle = Math.PI / 2 - 0.04;
 
       document.getElementById('top-hud').classList.remove('opacity-0', 'pointer-events-none');
@@ -2224,7 +2428,7 @@
       document.getElementById('inspect-bar').classList.remove('flex');
 
       if (resetCam) {
-        moveCamera(new THREE.Vector3(-11.5, 15.5, 19.5), new THREE.Vector3(0.0, 0.3, -0.4));
+        moveCamera(new THREE.Vector3(-9.5, 10.8, 26.5), new THREE.Vector3(0.0, 4.2, -2.5));
       }
     }
 
@@ -2375,13 +2579,13 @@
       });
 
       document.getElementById('btn-cam-iso').addEventListener('click', () => {
-        playSelectTap(); moveCamera(new THREE.Vector3(-11.5, 15.5, 19.5), new THREE.Vector3(0.0, 0.3, -0.4));
+        playSelectTap(); moveCamera(new THREE.Vector3(-9.5, 10.8, 26.5), new THREE.Vector3(0.0, 4.2, -2.5));
       });
       document.getElementById('btn-cam-top').addEventListener('click', () => {
-        playSelectTap(); moveCamera(new THREE.Vector3(0.0, 24.5, 2.2), new THREE.Vector3(0.0, 0, -0.5));
+        playSelectTap(); moveCamera(new THREE.Vector3(0.0, 26.0, 4.0), new THREE.Vector3(0.0, 0, -0.5));
       });
       document.getElementById('btn-cam-low').addEventListener('click', () => {
-        playSelectTap(); moveCamera(new THREE.Vector3(-13.5, 6.2, 12.5), new THREE.Vector3(0.5, 1.0, -1.5));
+        playSelectTap(); moveCamera(new THREE.Vector3(-11.5, 4.4, 17.5), new THREE.Vector3(0.0, 5.5, -5.5));
       });
 
       document.getElementById('btn-sound').addEventListener('click', (e) => {
